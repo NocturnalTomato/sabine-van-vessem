@@ -473,6 +473,124 @@
   }
   requestAnimationFrame(frame);
 
+  /* =========================================================
+     Subtiele effecten
+     ========================================================= */
+  // koppen letter voor letter
+  function splitText(el) {
+    let i = 0;
+    const walk = (node) => {
+      [...node.childNodes].forEach((n) => {
+        if (n.nodeType === 3) {
+          const frag = document.createDocumentFragment();
+          n.textContent.split(/(\s+)/).forEach((part) => {
+            if (!part) return;
+            if (/^\s+$/.test(part)) { frag.appendChild(document.createTextNode(part)); return; }
+            const w = document.createElement('span'); w.className = 'w';
+            [...part].forEach((c) => {
+              const ch = document.createElement('span'); ch.className = 'ch';
+              ch.style.setProperty('--i', i++); ch.textContent = c; w.appendChild(ch);
+            });
+            frag.appendChild(w);
+          });
+          n.replaceWith(frag);
+        } else if (n.nodeType === 1 && n.tagName !== 'BR') walk(n);
+      });
+    };
+    el.setAttribute('aria-label', el.textContent.replace(/\s+/g, ' ').trim());
+    walk(el);
+    el.classList.add('split');
+  }
+  if (!reduced) $$('.section-head h2, .watch__big').forEach(splitText);
+
+  const spotlight = $('#spotlight');
+  const progress = $('.progress');
+  const heroEl = $('.hero'), heroMedia = $('.hero__media'), heroContent = $('.hero__content');
+  const marquee = $('.marquee');
+  let lastY = scrollY, skew = 0, hx = 0, hy = 0;
+
+  // magnetische knoppen
+  if (!reduced && matchMedia('(hover: hover)').matches) {
+    spotlight.classList.add('on');
+    $$('.btn, .topbar__play, .bigplay__icon, .presets button').forEach((el) => {
+      el.addEventListener('pointermove', (e) => {
+        const r = el.getBoundingClientRect();
+        const x = (e.clientX - r.left - r.width / 2) * 0.22;
+        const y = (e.clientY - r.top - r.height / 2) * 0.3;
+        el.style.translate = `${x}px ${y}px`;
+      });
+      el.addEventListener('pointerleave', () => { el.style.translate = ''; });
+    });
+  }
+
+  // actieve sectie in de navigatie
+  const navLinks = $$('.topbar__nav a');
+  const navIo = new IntersectionObserver((entries) => {
+    entries.forEach((e) => {
+      if (!e.isIntersecting) return;
+      navLinks.forEach((a) => a.classList.toggle('active', a.getAttribute('href') === '#' + e.target.id));
+    });
+  }, { rootMargin: '-45% 0px -50% 0px' });
+  navLinks.forEach((a) => { const t = $(a.getAttribute('href')); if (t) navIo.observe(t); });
+
+  // stofdeeltjes in het neonlicht
+  const dust = $('#heroDust');
+  const dctx = dust.getContext('2d');
+  const motes = Array.from({ length: innerWidth < 640 ? 28 : 60 }, () => ({
+    x: Math.random(), y: Math.random(), r: 0.5 + Math.random() * 1.8,
+    vx: (Math.random() - 0.5) * 0.00012, vy: -0.00008 - Math.random() * 0.00022,
+    tw: Math.random() * Math.PI * 2, hue: Math.random() < 0.6 ? 355 : 55,
+  }));
+  const fitDust = () => { const r = dust.getBoundingClientRect(); dust.width = r.width * dpr; dust.height = r.height * dpr; };
+  addEventListener('resize', fitDust); fitDust();
+
+  function effects(now) {
+    const y = scrollY;
+    const docH = document.documentElement.scrollHeight - innerHeight;
+    progress.style.setProperty('--p', docH > 0 ? (y / docH).toFixed(4) : 0);
+
+    if (!reduced) {
+      // hero: parallax + vervagen bij scrollen, licht meebewegen met de muis
+      const hh = heroEl.offsetHeight;
+      if (y < hh) {
+        const k = y / hh;
+        hx += ((mx / innerWidth - 0.5) * -14 - hx) * 0.05;
+        hy += ((my / innerHeight - 0.5) * -10 - hy) * 0.05;
+        heroMedia.style.transform = `translate3d(${hx}px, ${y * 0.35 + hy}px, 0)`;
+        heroContent.style.transform = `translate3d(0, ${y * -0.12}px, 0)`;
+        heroContent.style.opacity = Math.max(0, 1 - k * 1.3);
+        heroContent.style.filter = k > 0.02 ? `blur(${(k * 4).toFixed(2)}px)` : '';
+
+        // stof
+        const W = dust.width, H = dust.height;
+        dctx.clearRect(0, 0, W, H);
+        motes.forEach((m) => {
+          m.x += m.vx; m.y += m.vy; m.tw += 0.02;
+          if (m.y < -0.02) { m.y = 1.02; m.x = Math.random(); }
+          if (m.x < -0.02) m.x = 1.02; else if (m.x > 1.02) m.x = -0.02;
+          const a = (0.25 + 0.35 * Math.sin(m.tw)) * (0.7 + beat * 0.8);
+          dctx.beginPath();
+          dctx.fillStyle = `hsla(${m.hue}, 100%, 75%, ${Math.max(0, a).toFixed(3)})`;
+          dctx.shadowColor = `hsla(${m.hue}, 100%, 60%, .8)`;
+          dctx.shadowBlur = 6 * dpr;
+          dctx.arc(m.x * W + hx * dpr * 2, m.y * H, m.r * dpr * (1 + beat * 0.4), 0, Math.PI * 2);
+          dctx.fill();
+        });
+      }
+
+      // lichtkrant buigt mee met de scrollsnelheid
+      const v = y - lastY;
+      skew += (Math.max(-6, Math.min(6, v * 0.12)) - skew) * 0.12;
+      marquee.style.setProperty('--skew', skew.toFixed(2) + 'deg');
+
+      spotlight.style.setProperty('--sx', mx + 'px');
+      spotlight.style.setProperty('--sy', my + 'px');
+    }
+    lastY = y;
+    requestAnimationFrame(effects);
+  }
+  requestAnimationFrame(effects);
+
   // keyboard: space toggles the machine when it's on screen
   addEventListener('keydown', (e) => {
     if (e.code !== 'Space' || /INPUT|BUTTON|TEXTAREA/.test(document.activeElement.tagName)) return;

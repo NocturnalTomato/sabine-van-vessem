@@ -109,11 +109,12 @@ em { font-style: italic; color: var(--yellow); }
 /* ---------- Hero ---------- */
 .hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: flex-end; overflow: hidden; isolation: isolate; }
 .hero__media { position: absolute; inset: 0; z-index: -1; }
+.hero::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 6px; z-index: 0; background: linear-gradient(90deg, var(--bg), transparent); pointer-events: none; }
 .hero__img, .hero__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: 50% 30%; transform: scale(calc(1.06 + var(--beat) * .015)); transition: transform .08s linear; }
 .hero__video { opacity: 0; transition: opacity 1.6s ease, transform .08s linear; }
 .hero__video.playing { opacity: 1; }
 .hero__media::after {
-  content: ""; position: absolute; inset: 0;
+  content: ""; position: absolute; inset: -4px;
   background:
     linear-gradient(180deg, rgba(7,7,10,.55) 0%, rgba(7,7,10,0) 22%, rgba(7,7,10,0) 42%, rgba(7,7,10,.85) 72%, var(--bg) 100%),
     radial-gradient(120% 70% at 50% 0%, transparent 40%, rgba(7,7,10,.6) 100%);
@@ -361,4 +362,67 @@ input[type="range"]:focus-visible { outline: 2px solid var(--yellow); outline-of
   *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
   .reveal { opacity: 1; transform: none; }
   .grain { display: none; }
+}
+
+/* =========================================================
+   Subtiele effecten
+   ========================================================= */
+
+/* scroll-voortgang */
+.progress { position: fixed; top: 0; left: 0; right: 0; height: 2px; z-index: 60; transform-origin: left; transform: scaleX(var(--p, 0)); background: linear-gradient(90deg, var(--red), var(--magenta), var(--yellow)); box-shadow: 0 0 8px rgba(243,238,111,.5); pointer-events: none; }
+
+/* zacht licht dat de cursor volgt */
+.spotlight { position: fixed; inset: 0; z-index: 88; pointer-events: none; mix-blend-mode: soft-light; opacity: 0; transition: opacity .6s;
+  background: radial-gradient(520px circle at var(--sx, 50%) var(--sy, 50%), rgba(255,240,200,.16), transparent 60%); }
+.spotlight.on { opacity: 1; }
+
+/* stofdeeltjes in het neonlicht */
+.hero__dust { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; mix-blend-mode: screen; }
+.hero__content { will-change: transform, opacity; }
+
+/* koppen letter voor letter */
+.split .w { display: inline-block; white-space: nowrap; }
+.split .ch { display: inline-block; opacity: 0; transform: translateY(.35em) rotate(3deg); filter: blur(6px);
+  transition: opacity .7s, transform .9s cubic-bezier(.2,.8,.2,1), filter .7s; transition-delay: calc(var(--i) * 18ms); }
+.reveal.in .split .ch, .split.in .ch { opacity: 1; transform: none; filter: none; }
+
+/* beeld onthult zich met een wipe */
+.about__photo .tilt { clip-path: inset(100% 0 0 0 round 8px); transition: clip-path 1.3s cubic-bezier(.7,0,.2,1), transform .2s ease-out; }
+.reel video { clip-path: inset(100% 0 0 0); transition: clip-path 1.3s cubic-bezier(.7,0,.2,1), transform .8s cubic-bezier(.2,.8,.2,1), filter .4s; }
+.about__photo.in .tilt { clip-path: inset(0 0 0 0 round 8px); }
+.reel.in video { clip-path: inset(0 0 0 0); }
+.reels .reel:nth-child(2), .reels .reel:nth-child(2) video { transition-delay: .12s; }
+.reels .reel:nth-child(3), .reels .reel:nth-child(3) video { transition-delay: .24s; }
+
+/* lichtschittering bij hover */
+.tilt::after, .reel::before { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+  background: linear-gradient(115deg, transparent 35%, rgba(255,255,255,.14) 48%, rgba(243,238,111,.08) 52%, transparent 65%);
+  transform: translateX(-120%); transition: transform 1.1s cubic-bezier(.2,.8,.2,1); }
+.tilt:hover::after, .reel:hover::before { transform: translateX(120%); }
+.reel:hover video { filter: saturate(1.25) contrast(1.08) drop-shadow(2px 0 0 rgba(255,42,61,.35)) drop-shadow(-2px 0 0 rgba(243,238,111,.25)); }
+
+/* nav-onderstreping */
+.topbar__nav a::after { content: ""; position: absolute; left: 0; right: 0; bottom: -6px; height: 1px; background: var(--yellow); transform: scaleX(0); transform-origin: right; transition: transform .4s cubic-bezier(.2,.8,.2,1); }
+.topbar__nav a:hover::after, .topbar__nav a.active::after { transform: scaleX(1); transform-origin: left; }
+.topbar__nav a.active { opacity: 1; color: var(--yellow); }
+
+/* magnetische knoppen */
+.btn, .topbar__play, .bigplay__icon, .presets button { transition: translate .35s cubic-bezier(.2,.8,.2,1), transform .2s, background .2s, color .2s, box-shadow .2s, border-color .2s; }
+
+/* lichtkrant buigt mee met scrollsnelheid */
+.marquee { transform: rotate(-1.4deg) scale(1.03) skewX(var(--skew, 0deg)); transition: transform .4s ease-out; }
+
+/* kleine accenten */
+.kicker::after { transform-origin: left; transform: scaleX(0); transition: transform 1s .2s cubic-bezier(.7,0,.2,1); }
+.reveal.in .kicker::after, .hero .kicker::after, .in > .kicker::after { transform: scaleX(1); }
+.chips li { transition: background .2s, color .2s, border-color .2s, transform .25s; }
+.chips li:hover { transform: translateY(-2px); }
+.triad li span { transition: color .3s, text-shadow .3s; }
+.triad li:hover span { color: var(--yellow); text-shadow: 0 0 10px var(--yellow); }
+.eye { transition: box-shadow .3s; box-shadow: 0 0 0 6px var(--bg), 0 0 0 8px var(--red), 0 0 calc(40px + var(--beat) * 40px) rgba(255,42,61,.6); }
+
+@media (prefers-reduced-motion: reduce) {
+  .split .ch { opacity: 1; transform: none; filter: none; }
+  .about__photo .tilt, .reel video { clip-path: none; }
+  .spotlight, .hero__dust { display: none; }
 }

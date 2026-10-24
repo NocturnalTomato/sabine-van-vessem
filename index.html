@@ -28,6 +28,8 @@
 
   <div class="grain" aria-hidden="true"></div>
   <div class="cursor" id="cursor" aria-hidden="true"></div>
+  <div class="spotlight" id="spotlight" aria-hidden="true"></div>
+  <div class="progress" aria-hidden="true"></div>
 
   <header class="topbar">
     <a class="topbar__brand" href="#top"><span class="dot"></span>SvV</a>
@@ -51,6 +53,7 @@
         <video class="hero__video" id="heroVideo" src="assets/video/hero-loop.mp4" poster="assets/video/hero-loop.jpg" muted loop playsinline preload="metadata" aria-hidden="true"></video>
         <span class="live-badge"><i></i>Live</span>
         <div class="hero__glow"></div>
+        <canvas class="hero__dust" id="heroDust" aria-hidden="true"></canvas>
         <canvas class="hero__eq" id="heroEq" aria-hidden="true"></canvas>
       </div>
       <div class="hero__tags">
