@@ -213,16 +213,16 @@
         <div class="section-head reveal">
           <span class="kicker">04 — Groove Machine</span>
           <h2>Schuif van <span class="boemtxt">boem</span> naar <em>groove</em>.</h2>
-          <p class="section-sub">Gebouwd op haar eigen set. We hebben de audio uit de filmpjes geanalyseerd en er
-            loops uit gesneden: haar echte geluid, strak op de grid, aangevuld met een live synth in dezelfde toonsoort en hetzelfde tempo.
-            Schuif van eindeloos gebeuk naar diepe groove, hak haar set in stukjes en druk op <strong>Drop</strong>.</p>
+          <p class="section-sub">Gebouwd op de analyse van haar set: zelfde tempo, zelfde toonsoort, dezelfde strakke kick,
+            korte offbeat-hats en clap op 2 en 4. Elk geluid wordt live in je browser gesynthetiseerd, er wordt geen sample gebruikt.
+            Schuif van eindeloos gebeuk naar diepe groove en druk op <strong>Drop</strong>.</p>
         </div>
 
         <div class="analysis reveal" aria-label="Analyse van haar set">
           <div class="analysis__item"><span class="k">Tempo</span><span class="v">128</span><span class="u">BPM</span></div>
           <div class="analysis__item"><span class="k">Toon</span><span class="v">A</span><span class="u">mineur · frygisch</span></div>
           <div class="analysis__item"><span class="k">Riff</span><span class="v">1</span><span class="u">toon, hypnotisch herhaald</span></div>
-          <div class="analysis__item"><span class="k">Energie</span><span class="v">2–6</span><span class="u">kHz · helder middengebied</span></div>
+          <div class="analysis__item"><span class="k">Hats</span><span class="v">65</span><span class="u">ms · kort, op de offbeat</span></div>
         </div>
 
         <div class="deck reveal">
@@ -234,7 +234,6 @@
               <div><span class="k">MODUS</span><span class="v" id="modeOut">GROOVE</span></div>
               <div><span class="k">BAR</span><span class="v" id="stepOut">--</span></div>
             </div>
-            <div class="deck__status" id="deckStatus" role="status"></div>
             <div class="deck__tracks" id="tracks" aria-hidden="true"></div>
           </div>
 
@@ -247,16 +246,6 @@
               <button class="dropbtn" id="drop" disabled>Drop</button>
             </div>
 
-            <div class="sources" role="radiogroup" aria-label="Bron">
-              <span class="ctl-label">Haar set</span>
-              <div class="sources__btns">
-                <button role="radio" data-src="1" aria-checked="true">Reel 1</button>
-                <button role="radio" data-src="2" aria-checked="false">Reel 2</button>
-                <button role="radio" data-src="3" aria-checked="false">Reel 3</button>
-                <button role="radio" data-src="0" aria-checked="false">Alleen synth</button>
-              </div>
-            </div>
-
             <div class="fader">
               <div class="fader__labels"><span>Boem boem boem</span><span>Meer groove</span></div>
               <input type="range" id="groove" min="0" max="100" value="80" aria-label="Van boem naar groove">
@@ -266,12 +255,12 @@
             <div class="knobs">
               <label class="knob"><span>Filter <b id="filterOut">open</b></span>
                 <input type="range" id="filter" min="-100" max="100" value="0" aria-label="DJ-filter"></label>
-              <label class="knob"><span>Chop <b id="chopOut">0%</b></span>
-                <input type="range" id="chop" min="0" max="100" value="0" aria-label="Hak haar set in stukjes"></label>
-              <label class="knob"><span>Sabine <b id="mixOut">70%</b></span>
-                <input type="range" id="mix" min="0" max="100" value="70" aria-label="Volume van haar set"></label>
-              <label class="knob"><span>Echo <b id="echoOut">35%</b></span>
-                <input type="range" id="echo" min="0" max="100" value="35" aria-label="Echo en galm"></label>
+              <label class="knob"><span>Swing <b id="swingOut">12%</b></span>
+                <input type="range" id="swing" min="0" max="60" value="12" aria-label="Swing"></label>
+              <label class="knob"><span>Echo <b id="echoOut">30%</b></span>
+                <input type="range" id="echo" min="0" max="100" value="30" aria-label="Echo en galm"></label>
+              <label class="knob"><span>Bas <b id="bassOut">75%</b></span>
+                <input type="range" id="bassLvl" min="0" max="100" value="75" aria-label="Volume van de bas"></label>
               <label class="knob"><span>Tempo <b id="bpmKnobOut">128</b></span>
                 <input type="range" id="bpm" min="118" max="138" value="128" aria-label="Tempo in BPM"></label>
               <label class="knob"><span>Volume <b id="volOut">70%</b></span>
@@ -284,6 +273,43 @@
               <button data-preset="80">Sabine</button>
               <button data-preset="100">Diep</button>
             </div>
+          </div>
+        </div>
+
+        <div class="melody reveal" id="melodie">
+          <div class="melody__head">
+            <div>
+              <span class="kicker">Jouw melodie</span>
+              <h3 class="melody__title">Zet je eigen <em>tune</em> erin.</h3>
+              <p class="melody__sub">Klik in het raster om noten te zetten: één noot per stap, altijd in de toonsoort van haar set.
+                De onderste rij geeft een noot een accent. Je melodie speelt meteen mee in de Groove Machine.</p>
+            </div>
+            <div class="melody__opts">
+              <div class="seg" role="radiogroup" aria-label="Klank">
+                <span class="ctl-label">Klank</span>
+                <div class="seg__btns">
+                  <button role="radio" data-sound="acid" aria-checked="true">Acid</button>
+                  <button role="radio" data-sound="pluk" aria-checked="false">Pluk</button>
+                  <button role="radio" data-sound="bel" aria-checked="false">Bel</button>
+                </div>
+              </div>
+              <div class="seg" role="radiogroup" aria-label="Octaaf">
+                <span class="ctl-label">Octaaf</span>
+                <div class="seg__btns">
+                  <button role="radio" data-oct="-1" aria-checked="false">Laag</button>
+                  <button role="radio" data-oct="0" aria-checked="true">Midden</button>
+                  <button role="radio" data-oct="1" aria-checked="false">Hoog</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="roll" id="roll" role="group" aria-label="Melodie-raster, 16 stappen"></div>
+          <div class="melody__actions">
+            <button data-act="sabine">Sabine-riff</button>
+            <button data-act="random">Verras me</button>
+            <button data-act="clear">Wissen</button>
+            <button data-act="share" class="primary">Deel je melodie</button>
+            <span class="melody__msg" id="melodyMsg" role="status"></span>
           </div>
         </div>
       </div>

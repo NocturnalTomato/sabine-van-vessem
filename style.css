@@ -469,3 +469,46 @@ input[type="range"]:focus-visible { outline: 2px solid var(--yellow); outline-of
 .knob span { display: flex; justify-content: space-between; gap: 6px; }
 .knob b { font-weight: 700; color: var(--yellow); letter-spacing: .04em; }
 @media (max-width: 480px) { .knobs { grid-template-columns: 1fr 1fr; } .sources__btns { grid-template-columns: 1fr 1fr; } }
+
+/* =========================================================
+   Jouw melodie
+   ========================================================= */
+.melody { margin-top: 22px; border: 1px solid var(--line); border-radius: 14px; background: #0a0a0e; padding: clamp(20px, 3vw, 36px); }
+.melody__head { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; flex-wrap: wrap; margin-bottom: 24px; }
+.melody__title { font: 900 clamp(28px, 3.4vw, 46px)/1 var(--serif); margin: 16px 0 10px; letter-spacing: -.02em; }
+.melody__sub { color: var(--ink-dim); font-size: 15px; max-width: 560px; margin: 0; }
+.melody__opts { display: flex; gap: 18px; flex-wrap: wrap; }
+.seg__btns { display: flex; gap: 6px; }
+.seg__btns button, .melody__actions button { font: 700 11px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ink); background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 6px; padding: 10px 14px; cursor: pointer; transition: all .2s; }
+.seg__btns button:hover, .melody__actions button:hover { border-color: var(--yellow); color: var(--yellow); }
+.seg__btns button[aria-checked="true"] { background: var(--yellow); color: var(--bg); border-color: var(--yellow); }
+
+.roll { display: grid; grid-template-columns: 54px repeat(16, minmax(0, 1fr)); gap: 4px; user-select: none; }
+.roll__lbl { font: 700 11px var(--mono); color: var(--ink-dim); display: flex; align-items: center; letter-spacing: .06em; }
+.roll__lbl.root { color: var(--yellow); }
+.roll__lbl--acc { font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--red); margin-top: 8px; }
+.roll__cell { appearance: none; border: 0; padding: 0; height: 30px; border-radius: 4px; background: rgba(255,255,255,.05); cursor: pointer; transition: background .12s, box-shadow .12s, transform .12s; }
+.roll__cell.beat { background: rgba(255,255,255,.09); }
+.roll__cell:nth-child(17n+6), .roll__cell:nth-child(17n+10), .roll__cell:nth-child(17n+14) { margin-left: 4px; }
+.roll__cell:hover { background: rgba(243,238,111,.25); }
+.roll__cell.on { background: var(--yellow); box-shadow: 0 0 12px rgba(243,238,111,.5); }
+.roll__cell.on.acc { background: var(--red); box-shadow: 0 0 14px rgba(255,42,61,.7); }
+.roll__cell.now { box-shadow: inset 0 0 0 1px rgba(243,238,111,.55); }
+.roll__cell.on.now { transform: scale(1.12); }
+.roll__cell--acc { height: 16px; margin-top: 8px; background: rgba(255,42,61,.08); }
+.roll__cell--acc.beat { background: rgba(255,42,61,.12); }
+.roll__cell--acc.on { background: var(--red); box-shadow: 0 0 10px rgba(255,42,61,.6); }
+.roll__cell--acc:disabled { opacity: .3; cursor: default; }
+.roll__cell:focus-visible { outline: 2px solid var(--yellow); outline-offset: 1px; }
+.melody__actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 22px; }
+.melody__actions .primary { background: var(--yellow); color: var(--bg); border-color: var(--yellow); }
+.melody__actions .primary:hover { color: var(--bg); box-shadow: 0 0 20px rgba(243,238,111,.5); }
+.melody__msg { font: 12px var(--mono); color: var(--ink-dim); word-break: break-all; }
+@media (max-width: 640px) {
+  .roll { grid-template-columns: 30px repeat(16, minmax(0, 1fr)); gap: 2px; }
+  .roll__cell { height: 26px; border-radius: 3px; }
+  .roll__cell:nth-child(17n+6), .roll__cell:nth-child(17n+10), .roll__cell:nth-child(17n+14) { margin-left: 2px; }
+  .roll__lbl { font-size: 10px; }
+  .roll__lbl--acc { font-size: 0; }
+  .roll__lbl--acc::before { content: "!"; font-size: 12px; }
+}
