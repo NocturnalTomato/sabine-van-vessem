@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sabine van Vessem — Minder boem boem boem, meer groove</title>
+  <meta name="description" content="Sabine van Vessem: een nieuwe naam in de elektronische muziekscene. Techno met karakter — minder boem boem boem, meer melodie, sfeer en groove.">
+  <meta name="theme-color" content="#07070a">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Sabine van Vessem — Minder boem boem boem, meer groove">
+  <meta property="og:description" content="Techno met karakter. Een naam om in de gaten te houden.">
+  <meta property="og:image" content="assets/og.jpg">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2307070a'/%3E%3Ctext x='32' y='45' font-family='Georgia,serif' font-size='38' font-weight='700' text-anchor='middle' fill='%23f3ee6f'%3ES%3C/text%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,800;0,900;1,700;1,900&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Intro loader -->
+  <div class="loader" id="loader" aria-hidden="true">
+    <div class="loader__words">
+      <span class="boem">boem</span><span class="boem">boem</span><span class="boem">boem</span>
+      <span class="groove">groove.</span>
+    </div>
+  </div>
+
+  <div class="grain" aria-hidden="true"></div>
+  <div class="cursor" id="cursor" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="topbar__brand" href="#top"><span class="dot"></span>SvV</a>
+    <nav class="topbar__nav" aria-label="Hoofdmenu">
+      <a href="#over">Over</a>
+      <a href="#sound">Sound</a>
+      <a href="#live">Live</a>
+      <a href="#machine">Groove&nbsp;Machine</a>
+      <a href="#gaten">In de gaten</a>
+    </nav>
+    <button class="topbar__play" id="topPlay" aria-pressed="false" title="Start de groove">
+      <span class="eq-mini"><i></i><i></i><i></i><i></i></span><span class="lbl">Play</span>
+    </button>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero" aria-label="Sabine van Vessem">
+      <div class="hero__media">
+        <img src="assets/hero.jpg" alt="Sabine van Vessem achter de draaitafels onder rood neonlicht" class="hero__img" id="heroImg">
+        <video class="hero__video" id="heroVideo" src="assets/video/hero-loop.mp4" poster="assets/video/hero-loop.jpg" muted loop playsinline preload="metadata" aria-hidden="true"></video>
+        <span class="live-badge"><i></i>Live</span>
+        <div class="hero__glow"></div>
+        <canvas class="hero__eq" id="heroEq" aria-hidden="true"></canvas>
+      </div>
+      <div class="hero__tags">
+        <span class="kicker">Muziek</span>
+        <ul class="tags"><li>Clubcultuur</li><li>Talent</li><li>Techno</li></ul>
+      </div>
+      <div class="hero__content">
+        <h1 class="title" aria-label="Sabine van Vessem">
+          <span class="title__line" data-text="Sabine">Sabine</span>
+          <span class="title__line" data-text="van Vessem">van Vessem</span>
+        </h1>
+        <p class="subtitle">Minder boem boem boem,<br><em>meer groove</em></p>
+        <div class="hero__cta">
+          <a href="#machine" class="btn btn--neon">Voel het verschil</a>
+          <a href="#over" class="btn btn--ghost">Wie is Sabine?</a>
+        </div>
+      </div>
+      <a class="scroll-hint" href="#over" aria-label="Scroll naar beneden"><span></span></a>
+    </section>
+
+    <!-- MARQUEE -->
+    <div class="marquee" aria-hidden="true">
+      <div class="marquee__track">
+        <span>Minder boem boem boem</span><b>✦</b><span class="y">Meer groove</span><b>✦</b>
+        <span>Melodie</span><b>✦</b><span class="y">Sfeer</span><b>✦</b><span>Hypnotiserend</span><b>✦</b>
+        <span class="y">Meer Sabine</span><b>✦</b>
+        <span>Minder boem boem boem</span><b>✦</b><span class="y">Meer groove</span><b>✦</b>
+        <span>Melodie</span><b>✦</b><span class="y">Sfeer</span><b>✦</b><span>Hypnotiserend</span><b>✦</b>
+        <span class="y">Meer Sabine</span><b>✦</b>
+      </div>
+    </div>
+
+    <!-- OVER -->
+    <section class="about" id="over">
+      <div class="wrap about__grid">
+        <div class="about__label reveal"><span class="kicker">01 — Een nieuwe naam</span></div>
+        <p class="lead reveal">
+          Een nieuwe naam om in de gaten te houden in de elektronische muziekscene.
+          <strong>Sabine van Vessem</strong> brengt een <span class="hl">frisse, hypnotiserende sound</span>
+          die doet denken aan Charlotte de Witte, maar dan met wat minder
+          <span class="strike">boem boem boem</span> en wat meer
+          <span class="hl">melodie, sfeer en groove</span>.
+        </p>
+        <figure class="about__photo reveal">
+          <div class="tilt" data-tilt>
+            <img src="assets/portrait.jpg" alt="Sabine van Vessem, geconcentreerd achter de draaitafels" loading="lazy">
+            <span class="neon-frame"></span>
+          </div>
+          <figcaption>Onder het rode neonlicht.</figcaption>
+        </figure>
+        <div class="about__text reveal">
+          <span class="rule"></span>
+          <p>
+            Onder het rode neonlicht staat Sabine van Vessem achter de draaitafels. Met haar
+            geconcentreerde blik en feilloos gevoel voor dynamiek neemt ze het publiek mee op een
+            reis die niet draait om eindeloos gebeuk, maar om <em>spanning, texturen en emotie</em>.
+          </p>
+          <ul class="triad">
+            <li><span>01</span>Spanning</li>
+            <li><span>02</span>Texturen</li>
+            <li><span>03</span>Emotie</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- SOUND -->
+    <section class="sound" id="sound">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <span class="kicker">02 — De sound</span>
+          <h2>Techno die je <em>voelt</em>,<br>niet alleen hoort.</h2>
+        </div>
+
+        <div class="cards">
+          <article class="card reveal" data-tilt>
+            <div class="card__num">A1</div>
+            <h3>Techno met karakter</h3>
+            <p>
+              In een scene waar de harde kick vaak de boventoon voert, kiest Sabine voor een
+              verfijndere benadering. Donker en drijvend, maar met ruimte voor melodie en
+              gelaagdheid. Haar sets bouwen langzaam op, met hypnotiserende ritmes, diepe
+              basslines en subtiele melodieën die de dansvloer in beweging houden zonder je
+              trommelvliezen aan te vallen.
+            </p>
+            <ul class="chips">
+              <li>Donker</li><li>Drijvend</li><li>Melodie</li><li>Gelaagdheid</li>
+              <li>Hypnotiserende ritmes</li><li>Diepe basslines</li>
+            </ul>
+          </article>
+
+          <article class="card card--yellow reveal" data-tilt>
+            <div class="card__num">B1</div>
+            <h3>Een frisse wind</h3>
+            <p>
+              Met haar eigen sound en uitstraling laat Sabine van Vessem zien dat techno vele
+              vormen kent. Ze brengt energie, maar ook nuance. Intensiteit, maar ook ruimte.
+              En vooral: een unieke sfeer die je niet snel vergeet.
+            </p>
+            <ul class="chips">
+              <li>Eigen sound</li><li>Uitstraling</li><li>Nuance</li><li>Ruimte</li><li>Sfeer</li>
+            </ul>
+          </article>
+        </div>
+
+        <!-- build-up meter -->
+        <div class="buildup reveal" aria-label="Haar sets bouwen langzaam op">
+          <div class="buildup__label"><span class="kicker">Haar sets bouwen langzaam op</span><span class="buildup__pct" id="buildPct">0%</span></div>
+          <div class="buildup__bars" id="buildBars"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LIVE -->
+    <section class="live" id="live">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <span class="kicker">03 — Live onder het neon</span>
+          <h2>Zie wat er <em>ertussen</em> gebeurt.</h2>
+          <p class="section-sub">Drie momenten uit één set. Achter de draaitafels, en op de dansvloer. Klik om te kijken, met geluid.</p>
+        </div>
+        <div class="reels">
+          <figure class="reel reel--big reveal">
+            <video src="assets/video/set-2.mp4" poster="assets/video/set-2.jpg" playsinline preload="none"></video>
+            <button class="reel__play" aria-label="Speel video: handen in de lucht"><span></span></button>
+            <figcaption><span class="reel__no">Reel 01</span>Handen in de lucht</figcaption>
+            <div class="reel__bar"><i></i></div>
+          </figure>
+          <figure class="reel reveal">
+            <video src="assets/video/set-1.mp4" poster="assets/video/set-1.jpg" playsinline preload="none"></video>
+            <button class="reel__play" aria-label="Speel video: de dansvloer in beweging"><span></span></button>
+            <figcaption><span class="reel__no">Reel 02</span>De dansvloer in beweging</figcaption>
+            <div class="reel__bar"><i></i></div>
+          </figure>
+          <figure class="reel reveal">
+            <video src="assets/video/set-3.mp4" poster="assets/video/set-3.jpg" playsinline preload="none"></video>
+            <button class="reel__play" aria-label="Speel video: diep in de groove"><span></span></button>
+            <figcaption><span class="reel__no">Reel 03</span>Diep in de groove</figcaption>
+            <div class="reel__bar"><i></i></div>
+          </figure>
+        </div>
+      </div>
+    </section>
+
+    <!-- CONTRASTS -->
+    <section class="contrast" aria-label="Energie en nuance">
+      <div class="wrap">
+        <div class="contrast__row reveal"><span class="a">Energie,</span><span class="b">maar ook nuance.</span></div>
+        <div class="contrast__row reveal"><span class="a">Intensiteit,</span><span class="b">maar ook ruimte.</span></div>
+        <div class="contrast__row reveal"><span class="a">En vooral:</span><span class="b">een unieke sfeer die je niet snel vergeet.</span></div>
+      </div>
+    </section>
+
+    <!-- GROOVE MACHINE -->
+    <section class="machine" id="machine">
+      <div class="wrap">
+        <div class="section-head reveal">
+          <span class="kicker">04 — Groove Machine</span>
+          <h2>Schuif van <span class="boemtxt">boem</span> naar <em>groove</em>.</h2>
+          <p class="section-sub">Druk op play en hoor zelf het verschil. Helemaal links: eindeloos gebeuk.
+            Helemaal rechts: diepe basslines, hypnotiserende ritmes en subtiele melodieën. Live gegenereerd in je browser.</p>
+        </div>
+
+        <div class="deck reveal">
+          <div class="deck__screen">
+            <canvas id="scope" aria-hidden="true"></canvas>
+            <div class="deck__readout">
+              <div><span class="k">BPM</span><span class="v" id="bpmOut">126</span></div>
+              <div><span class="k">MODUS</span><span class="v" id="modeOut">GROOVE</span></div>
+              <div><span class="k">STAP</span><span class="v" id="stepOut">--</span></div>
+            </div>
+            <div class="deck__steps" id="steps" aria-hidden="true"></div>
+          </div>
+
+          <div class="deck__controls">
+            <button class="bigplay" id="play" aria-pressed="false">
+              <span class="bigplay__icon"></span>
+              <span class="bigplay__lbl">Play</span>
+            </button>
+
+            <div class="fader">
+              <div class="fader__labels"><span>Boem boem boem</span><span>Meer groove</span></div>
+              <input type="range" id="groove" min="0" max="100" value="80" aria-label="Van boem naar groove">
+              <div class="fader__meter"><i id="grooveFill"></i></div>
+            </div>
+
+            <div class="knobs">
+              <label class="knob">
+                <span>Tempo</span>
+                <input type="range" id="bpm" min="118" max="134" value="126" aria-label="Tempo in BPM">
+              </label>
+              <label class="knob">
+                <span>Volume</span>
+                <input type="range" id="vol" min="0" max="100" value="70" aria-label="Volume">
+              </label>
+            </div>
+
+            <div class="presets" role="group" aria-label="Presets">
+              <button data-preset="0">Gebeuk</button>
+              <button data-preset="45">Opbouw</button>
+              <button data-preset="80">Sabine</button>
+              <button data-preset="100">Diep</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUOTE -->
+    <section class="quote" aria-label="Citaat">
+      <div class="quote__bg" aria-hidden="true">BOEM BOEM BOEM BOEM BOEM BOEM BOEM BOEM BOEM BOEM BOEM BOEM</div>
+      <blockquote class="wrap reveal">
+        <p>
+          <span class="q-strike">“Minder <span class="shake">boem</span> <span class="shake">boem</span> <span class="shake">boem</span>.</span>
+          <span class="q-big">Meer Sabine.”</span>
+        </p>
+      </blockquote>
+    </section>
+
+    <!-- IN DE GATEN -->
+    <section class="watch" id="gaten">
+      <div class="wrap watch__grid">
+        <div class="eyes reveal" aria-hidden="true">
+          <div class="eye"><div class="pupil"></div></div>
+          <div class="eye"><div class="pupil"></div></div>
+        </div>
+        <div class="reveal">
+          <span class="kicker">05 — Houd haar in de gaten</span>
+          <p class="watch__text">
+            Of ze nu draait in een intieme club of op een groter podium, Sabine van Vessem bewijst
+            dat de echte magie niet in de hardste beat zit, maar juist in alles wat ertussen gebeurt.
+          </p>
+          <p class="watch__big">Een naam om in de gaten te houden.</p>
+          <button class="btn btn--neon" id="shareBtn">Deel deze naam</button>
+          <span class="share-msg" id="shareMsg" role="status"></span>
+        </div>
+      </div>
+    </section>
+
+    <section class="stage" aria-label="Van intieme club tot groot podium">
+      <img src="assets/decks.jpg" alt="" loading="lazy">
+      <div class="stage__text">
+        <span>Intieme club</span>
+        <span class="arrow">⟶</span>
+        <span>Groter podium</span>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer__name">Sabine van Vessem</div>
+    <div class="footer__row">
+      <span>Muziek · Clubcultuur · Talent · Techno</span>
+      <a href="#top">Terug naar boven ↑</a>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+</body>
+</html>
