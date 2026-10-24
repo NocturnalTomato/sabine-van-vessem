@@ -116,173 +116,408 @@
   });
 
   /* =========================================================
-     Audio: Groove Machine (Web Audio, generated live)
+     Audio: Groove Machine — gebouwd op haar eigen set
+     Analyse van de filmpjes: ~128 BPM, toonsoort rond A (mineur, frygisch),
+     een hypnotische riff die op één toon blijft hangen en veel energie
+     tussen 2 en 6 kHz. De loops in assets/audio zijn 4 maten op 128 BPM,
+     uit de filmpjes gesneden en beginnend op de eerste tel.
      ========================================================= */
-  let ctx, master, comp, analyser, freqData, timeData, noiseBuf, delay, delayFb, distCurve;
-  let playing = false, step = 0, nextTime = 0, timer = null;
-  let groove = 0.8, bpm = 126, volume = 0.7;
+  const LOOP_BPM = 128;
+  const LOOP_STEPS = 64;
+  const SOURCES = {
+    0: { key: 'Am', root: 0 },
+    1: { url: 'assets/audio/loop-1.wav', key: 'Am', root: 0 },
+    2: { url: 'assets/audio/loop-2.wav', key: 'Bm', root: 2 },
+    3: { url: 'assets/audio/loop-3.wav', key: 'Am', root: 0 },
+  };
+  const TRACKS = ['Kick', 'Hats', 'Bas', 'Riff', 'Sabine'];
 
-  const playBtn = $('#play'), topPlay = $('#topPlay');
+  let ctx, master, buildHP, djHigh, djLow, comp, analyser, freqData, timeData;
+  let drumBus, musicBus, duck, sampleBus, sampleLevel, reverbSend, reverbOut, delaySend, delayL, delayR, delayFb, delayOut;
+  let noiseBuf, distCurve, loopSrc = null;
+  let playing = false, step = 0, nextTime = 0, timer = null;
+  let groove = 0.8, bpm = 128, volume = 0.7, filterV = 0, chop = 0, mix = 0.7, echo = 0.35, src = 1;
+  let buildStart = -1, dropStep = -1, lastSlice = 0;
+  let shownPos = 0, shownTime = 0;
+  const buffers = {}, peaks = {}, loading = {};
+
+  const playBtn = $('#play'), topPlay = $('#topPlay'), dropBtn = $('#drop');
   const grooveIn = $('#groove'), bpmIn = $('#bpm'), volIn = $('#vol');
-  const modeOut = $('#modeOut'), bpmOut = $('#bpmOut'), stepOut = $('#stepOut'), grooveFill = $('#grooveFill');
-  const stepsEl = $('#steps');
-  for (let i = 0; i < 16; i++) stepsEl.appendChild(document.createElement('i'));
-  const stepCells = $$('i', stepsEl);
+  const filterIn = $('#filter'), chopIn = $('#chop'), mixIn = $('#mix'), echoIn = $('#echo');
+  const modeOut = $('#modeOut'), bpmOut = $('#bpmOut'), stepOut = $('#stepOut'), keyOut = $('#keyOut');
+  const grooveFill = $('#grooveFill'), deckStatus = $('#deckStatus');
+
+  // matrix: 5 sporen x 16 stappen
+  const tracksEl = $('#tracks');
+  const cells = TRACKS.map((name) => {
+    const row = document.createElement('div'); row.className = 'trk';
+    const lbl = document.createElement('span'); lbl.textContent = name; row.appendChild(lbl);
+    const cs = [];
+    for (let i = 0; i < 16; i++) { const c = document.createElement('i'); row.appendChild(c); cs.push(c); }
+    tracksEl.appendChild(row);
+    return cs;
+  });
+
+  const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+  const hz = (semis, base = 440) => base * Math.pow(2, semis / 12);
+  const spb = () => 60 / bpm / 4; // seconden per 16e
+  const keyRoot = () => SOURCES[src].root;
+
+  function impulse(seconds, decay) {
+    const len = Math.floor(ctx.sampleRate * seconds);
+    const buf = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let ch = 0; ch < 2; ch++) {
+      const d = buf.getChannelData(ch);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, decay);
+    }
+    return buf;
+  }
 
   function initAudio() {
     if (ctx) return;
     ctx = new (window.AudioContext || window.webkitAudioContext)();
-    master = ctx.createGain();
-    master.gain.value = volume;
+
+    master = ctx.createGain(); master.gain.value = volume;
+    buildHP = ctx.createBiquadFilter(); buildHP.type = 'highpass'; buildHP.frequency.value = 20;
+    djHigh = ctx.createBiquadFilter(); djHigh.type = 'highpass'; djHigh.frequency.value = 20; djHigh.Q.value = 0.7;
+    djLow = ctx.createBiquadFilter(); djLow.type = 'lowpass'; djLow.frequency.value = 20000; djLow.Q.value = 0.7;
     comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -14; comp.ratio.value = 4; comp.attack.value = 0.003; comp.release.value = 0.2;
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
-    analyser.smoothingTimeConstant = 0.78;
+    comp.threshold.value = -12; comp.ratio.value = 4; comp.attack.value = 0.004; comp.release.value = 0.18; comp.knee.value = 8;
+    analyser = ctx.createAnalyser(); analyser.fftSize = 2048; analyser.smoothingTimeConstant = 0.78;
     freqData = new Uint8Array(analyser.frequencyBinCount);
     timeData = new Uint8Array(analyser.fftSize);
-    master.connect(comp).connect(analyser).connect(ctx.destination);
+    master.connect(buildHP).connect(djHigh).connect(djLow).connect(comp).connect(analyser).connect(ctx.destination);
 
-    // noise buffer
+    drumBus = ctx.createGain(); drumBus.connect(master);
+    // alles behalve de drums pompt mee met de kick
+    duck = ctx.createGain(); duck.connect(master);
+    musicBus = ctx.createGain(); musicBus.connect(duck);
+
+    // haar set: telefoon-opname, dus laag weg (de synth-kick levert het fundament) en wat lucht erbij
+    sampleBus = ctx.createGain();
+    const hp = ctx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 140; hp.Q.value = 0.8;
+    const air = ctx.createBiquadFilter(); air.type = 'highshelf'; air.frequency.value = 6000; air.gain.value = 3;
+    const mud = ctx.createBiquadFilter(); mud.type = 'peaking'; mud.frequency.value = 350; mud.Q.value = 1; mud.gain.value = -4;
+    sampleLevel = ctx.createGain(); sampleLevel.gain.value = 0;
+    sampleBus.connect(hp).connect(mud).connect(air).connect(sampleLevel).connect(duck);
+
+    // galm
+    const conv = ctx.createConvolver(); conv.buffer = impulse(2.6, 3.2);
+    reverbSend = ctx.createGain();
+    const pre = ctx.createDelay(0.1); pre.delayTime.value = 0.02;
+    reverbOut = ctx.createGain(); reverbOut.gain.value = 0.5;
+    reverbSend.connect(pre).connect(conv).connect(reverbOut).connect(master);
+
+    // ping-pong echo op een gestippelde achtste
+    delaySend = ctx.createGain();
+    delayL = ctx.createDelay(2); delayR = ctx.createDelay(2);
+    delayFb = ctx.createGain(); delayFb.gain.value = 0.45;
+    const dTone = ctx.createBiquadFilter(); dTone.type = 'bandpass'; dTone.frequency.value = 1800; dTone.Q.value = 0.5;
+    const merger = ctx.createChannelMerger(2);
+    delayOut = ctx.createGain(); delayOut.gain.value = 0.5;
+    delaySend.connect(dTone).connect(delayL);
+    delayL.connect(merger, 0, 0); delayL.connect(delayR);
+    delayR.connect(merger, 0, 1); delayR.connect(delayFb).connect(delayL);
+    merger.connect(delayOut).connect(musicBus);
+
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    const d = noiseBuf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const nd = noiseBuf.getChannelData(0);
+    for (let i = 0; i < nd.length; i++) nd[i] = Math.random() * 2 - 1;
 
-    // dotted-eighth delay for melodies
-    delay = ctx.createDelay(2);
-    delayFb = ctx.createGain();
-    const delayFilter = ctx.createBiquadFilter();
-    delayFilter.type = 'lowpass'; delayFilter.frequency.value = 2400;
-    delayFb.gain.value = 0.42;
-    delay.connect(delayFilter).connect(delayFb).connect(delay);
-    const delayOut = ctx.createGain(); delayOut.gain.value = 0.55;
-    delayFilter.connect(delayOut).connect(master);
-
-    // distortion curve for "boem"
     const n = 1024; distCurve = new Float32Array(n);
     for (let i = 0; i < n; i++) { const x = (i * 2) / n - 1; distCurve[i] = Math.tanh(x * 9); }
+
+    applyTempo(); applyFilter(); applyEcho(); applyMix();
   }
 
-  const hz = (semis, base = 440) => base * Math.pow(2, semis / 12);
-  const spb = () => 60 / bpm / 4; // seconds per 16th
+  async function loadSource(id) {
+    if (!SOURCES[id].url || buffers[id] || loading[id]) return;
+    loading[id] = true;
+    if (id === src) deckStatus.textContent = 'Haar set laden…';
+    try {
+      const res = await fetch(SOURCES[id].url);
+      const buf = await ctx.decodeAudioData(await res.arrayBuffer());
+      buffers[id] = buf;
+      const d = buf.getChannelData(0), P = 400, size = Math.floor(d.length / P);
+      peaks[id] = Array.from({ length: P }, (_, i) => {
+        let m = 0;
+        for (let j = i * size; j < (i + 1) * size; j += 8) m = Math.max(m, Math.abs(d[j]));
+        return m;
+      });
+      if (id === src) deckStatus.textContent = '';
+    } catch (_) {
+      if (id === src) deckStatus.textContent = 'Kon haar set niet laden, alleen synth';
+    }
+    loading[id] = false;
+  }
 
-  function kick(t) {
+  /* ---------- instrumenten ---------- */
+  function kick(t, big = 0) {
     const boem = 1 - groove;
-    const o = ctx.createOscillator();
-    const g = ctx.createGain();
+    const o = ctx.createOscillator(), g = ctx.createGain();
     o.type = 'sine';
-    o.frequency.setValueAtTime(150 + boem * 60, t);
-    o.frequency.exponentialRampToValueAtTime(44, t + 0.12 + boem * 0.05);
-    const len = 0.38 + boem * 0.25;
+    o.frequency.setValueAtTime(165 + boem * 60 + big * 40, t);
+    // gestemd op de grondtoon van haar set (A1 = 55 Hz)
+    const tune = hz(keyRoot(), 55);
+    o.frequency.exponentialRampToValueAtTime(tune, t + 0.09 + boem * 0.06);
+    o.frequency.exponentialRampToValueAtTime(tune * 0.94, t + 0.4);
+    const len = 0.34 + boem * 0.3 + big * 0.6;
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(1, t + 0.004);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    g.gain.exponentialRampToValueAtTime(1, t + 0.003);
+    g.gain.setTargetAtTime(0.0001, t + 0.06 + big * 0.2, len / 4);
     o.connect(g);
-
-    const clean = ctx.createGain(); clean.gain.value = 0.55 + groove * 0.35;
-    g.connect(clean).connect(master);
+    const clean = ctx.createGain(); clean.gain.value = 0.58 + groove * 0.3;
+    g.connect(clean).connect(drumBus);
     if (boem > 0.05) {
       const ws = ctx.createWaveShaper(); ws.curve = distCurve; ws.oversample = '2x';
+      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2400;
       const dg = ctx.createGain(); dg.gain.value = boem * 0.55;
-      const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 2200;
-      g.connect(ws).connect(lp).connect(dg).connect(master);
+      g.connect(ws).connect(lp).connect(dg).connect(drumBus);
     }
-    o.start(t); o.stop(t + len + 0.05);
+    o.start(t); o.stop(t + len + 0.6);
+    // klik voor de punch
+    noise(t, { freq: 3500, q: 0.8, type: 'bandpass', len: 0.008, gain: 0.35 });
+    // sidechain: de rest pompt mee
+    const depth = 0.3 + groove * 0.4;
+    duck.gain.setTargetAtTime(1 - depth, t, 0.004);
+    duck.gain.setTargetAtTime(1, t + 0.04, 0.07 + spb() * 0.2);
   }
 
-  function noise(t, { type = 'highpass', freq = 7000, q = 0.7, len = 0.05, gain = 0.2, dest = master }) {
-    const s = ctx.createBufferSource(); s.buffer = noiseBuf;
+  function noise(t, { type = 'highpass', freq = 7000, q = 0.7, len = 0.05, gain = 0.2, dest = drumBus, send = 0, rate = 1 }) {
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.playbackRate.value = rate;
     const f = ctx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
     const g = ctx.createGain();
     g.gain.setValueAtTime(gain, t);
     g.gain.exponentialRampToValueAtTime(0.0001, t + len);
     s.connect(f).connect(g).connect(dest);
+    if (send) { const sg = ctx.createGain(); sg.gain.value = send; g.connect(sg).connect(reverbSend); }
     s.start(t, Math.random() * 0.5); s.stop(t + len + 0.02);
   }
 
-  function bass(t, f, len) {
-    const o = ctx.createOscillator(), o2 = ctx.createOscillator();
-    o.type = 'sawtooth'; o2.type = 'square';
-    o.frequency.value = f; o2.frequency.value = f / 2;
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 6;
-    const cut = 180 + groove * 700;
-    lp.frequency.setValueAtTime(cut * 2.4, t);
-    lp.frequency.exponentialRampToValueAtTime(cut, t + len);
-    const g = ctx.createGain();
-    const lvl = 0.22 * Math.min(1, (groove - 0.15) * 2);
+  // metalen hihat zoals een 808: zes blokgolven door een bandpass
+  const HAT_RATIOS = [2, 3, 4.16, 5.43, 6.79, 8.21];
+  function hat(t, open, vel) {
+    const g = ctx.createGain(), bp = ctx.createBiquadFilter(), hp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 10000; bp.Q.value = 0.8;
+    hp.type = 'highpass'; hp.frequency.value = 7000;
+    const len = open ? 0.26 : 0.045;
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(lvl, t + 0.01);
+    g.gain.exponentialRampToValueAtTime(vel, t + 0.002);
     g.gain.exponentialRampToValueAtTime(0.0001, t + len);
-    const g2 = ctx.createGain(); g2.gain.value = 0.5;
-    o.connect(lp); o2.connect(g2).connect(lp); lp.connect(g).connect(master);
-    o.start(t); o2.start(t); o.stop(t + len + 0.05); o2.stop(t + len + 0.05);
-  }
-
-  function pluck(t, f, lvl) {
-    const o = ctx.createOscillator(), o2 = ctx.createOscillator();
-    o.type = 'triangle'; o2.type = 'sine';
-    o.frequency.value = f; o2.frequency.value = f * 2.005;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(lvl, t + 0.006);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
-    const g2 = ctx.createGain(); g2.gain.value = 0.3;
-    o.connect(g); o2.connect(g2).connect(g);
-    g.connect(master); g.connect(delay);
-    o.start(t); o2.start(t); o.stop(t + 0.4); o2.stop(t + 0.4);
-  }
-
-  function pad(t, root, len, lvl) {
-    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.Q.value = 1;
-    const g = ctx.createGain();
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.linearRampToValueAtTime(lvl, t + len * 0.4);
-    g.gain.linearRampToValueAtTime(0.0001, t + len);
-    lp.connect(g).connect(master);
-    [0, 3, 7, 10].forEach((iv) => {
-      [-7, 7].forEach((det) => {
-        const o = ctx.createOscillator(); o.type = 'sawtooth';
-        o.frequency.value = hz(root + iv, 220); o.detune.value = det;
-        o.connect(lp); o.start(t); o.stop(t + len + 0.05);
-      });
+    bp.connect(hp).connect(g).connect(drumBus);
+    HAT_RATIOS.forEach((r) => {
+      const o = ctx.createOscillator(); o.type = 'square'; o.frequency.value = 40 * r;
+      o.connect(bp); o.start(t); o.stop(t + len + 0.02);
     });
   }
 
-  // A minor: A, F, C, G (semitones relative to A)
-  const prog = [0, -4, 3, -2];
-  const bassPat = [0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 1, 0];
-  const melPat = [0, null, 7, null, 3, null, 10, null, 0, null, 7, 12, null, 5, null, 3];
+  function perc(t, f, vel) {
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle'; o.frequency.setValueAtTime(f * 1.6, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.02);
+    g.gain.setValueAtTime(vel, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    o.connect(g).connect(musicBus);
+    const s = ctx.createGain(); s.gain.value = 0.4; g.connect(s).connect(delaySend);
+    o.start(t); o.stop(t + 0.12);
+  }
+
+  function bass(t, f, len, lvl) {
+    const o = ctx.createOscillator(), sub = ctx.createOscillator();
+    o.type = 'sawtooth'; sub.type = 'sine';
+    o.frequency.value = f; sub.frequency.value = f;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 7;
+    const cut = 160 + groove * 520;
+    lp.frequency.setValueAtTime(cut * 3, t);
+    lp.frequency.exponentialRampToValueAtTime(cut, t + len * 0.8);
+    const g = ctx.createGain(), sg = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(lvl, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    sg.gain.value = 0.9;
+    o.connect(lp).connect(g); sub.connect(sg).connect(g); g.connect(musicBus);
+    o.start(t); sub.start(t); o.stop(t + len + 0.05); sub.stop(t + len + 0.05);
+  }
+
+  // hypnotische riff: één toon, zaagtand door een resonerend filter dat langzaam ademt
+  function riff(t, f, accent, lvl, lfo) {
+    const o = ctx.createOscillator(), o2 = ctx.createOscillator();
+    o.type = 'sawtooth'; o2.type = 'square'; o.frequency.value = f; o2.frequency.value = f; o2.detune.value = 9;
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 11 + accent * 6;
+    const base = 260 + lfo * 2600 * (0.4 + groove * 0.6);
+    lp.frequency.setValueAtTime(base * (1.6 + accent * 1.8), t);
+    lp.frequency.exponentialRampToValueAtTime(base, t + 0.12);
+    const g = ctx.createGain();
+    const len = spb() * (accent ? 0.95 : 0.6);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(lvl * (0.7 + accent * 0.5), t + 0.004);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    const m = ctx.createGain(); m.gain.value = 0.45;
+    o.connect(lp); o2.connect(m).connect(lp); lp.connect(g).connect(musicBus);
+    const ds = ctx.createGain(); ds.gain.value = 0.55; g.connect(ds).connect(delaySend);
+    o.start(t); o2.start(t); o.stop(t + len + 0.05); o2.stop(t + len + 0.05);
+  }
+
+  function stab(t, root, lvl) {
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.setValueAtTime(3200, t); lp.frequency.exponentialRampToValueAtTime(700, t + 0.25);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(lvl, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+    lp.connect(g).connect(musicBus);
+    const rs = ctx.createGain(); rs.gain.value = 0.8; g.connect(rs).connect(reverbSend);
+    const ds = ctx.createGain(); ds.gain.value = 0.5; g.connect(ds).connect(delaySend);
+    [0, 3, 7, 10].forEach((iv) => [-8, 8].forEach((det) => {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = hz(root + iv, 440); o.detune.value = det;
+      o.connect(lp); o.start(t); o.stop(t + 0.35);
+    }));
+  }
+
+  function pad(t, notes, len, lvl) {
+    const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 1100; lp.Q.value = 0.8;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(lvl, t + len * 0.45);
+    g.gain.linearRampToValueAtTime(0.0001, t + len);
+    lp.connect(g).connect(musicBus);
+    const rs = ctx.createGain(); rs.gain.value = 1; g.connect(rs).connect(reverbSend);
+    notes.forEach((n) => [-10, 0, 10].forEach((det) => {
+      const o = ctx.createOscillator(); o.type = 'sawtooth'; o.frequency.value = hz(n, 220); o.detune.value = det;
+      o.connect(lp); o.start(t); o.stop(t + len + 0.05);
+    }));
+  }
+
+  function riser(t, len) {
+    const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true;
+    const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = 2;
+    bp.frequency.setValueAtTime(300, t); bp.frequency.exponentialRampToValueAtTime(9000, t + len);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.32, t + len * 0.95); g.gain.linearRampToValueAtTime(0, t + len + 0.02);
+    s.connect(bp).connect(g).connect(master);
+    const rs = ctx.createGain(); rs.gain.value = 0.5; g.connect(rs).connect(reverbSend);
+    s.start(t); s.stop(t + len + 0.05);
+    // filter op de hele mix trekt omhoog, en bij de drop weer open
+    buildHP.frequency.cancelScheduledValues(t);
+    buildHP.frequency.setValueAtTime(20, t);
+    buildHP.frequency.exponentialRampToValueAtTime(900, t + len);
+    buildHP.frequency.setValueAtTime(20, t + len);
+  }
+
+  /* ---------- haar set ---------- */
+  function stopLoop(t) {
+    if (loopSrc) { try { loopSrc.stop(t || 0); } catch (_) {} loopSrc = null; }
+  }
+  function startLoop(t, pos) {
+    const buf = buffers[src];
+    stopLoop(t);
+    loopSrc = ctx.createBufferSource();
+    loopSrc.buffer = buf; loopSrc.loop = true; loopSrc.loopStart = 0; loopSrc.loopEnd = buf.duration;
+    loopSrc.playbackRate.value = bpm / LOOP_BPM;
+    loopSrc.connect(sampleBus);
+    loopSrc.start(t, (pos / LOOP_STEPS) * buf.duration);
+    loopSrc._src = src;
+  }
+  function slice(t, idx, len16 = 1) {
+    const buf = buffers[src];
+    const sl = buf.duration / LOOP_STEPS, rate = bpm / LOOP_BPM;
+    const s = ctx.createBufferSource(); s.buffer = buf; s.playbackRate.value = rate;
+    const g = ctx.createGain(), dur = (sl * len16) / rate;
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(1, t + 0.003);
+    g.gain.setValueAtTime(1, t + dur - 0.004); g.gain.linearRampToValueAtTime(0, t + dur);
+    s.connect(g).connect(sampleBus);
+    s.start(t, idx * sl, sl * len16 + 0.01); s.stop(t + dur + 0.02);
+  }
+  // geeft terug of haar set op deze stap klinkt
+  function sampleStep(t, s, building) {
+    const buf = buffers[src];
+    if (!buf || mix === 0) { stopLoop(t); return false; }
+    const pos = s % LOOP_STEPS;
+    let c = chop;
+    if (building) c = Math.max(c, (s - buildStart) / (dropStep - buildStart));
+    if (c < 0.02) {
+      if (!loopSrc || loopSrc._src !== src) startLoop(t, pos);
+      return true;
+    }
+    stopLoop(t);
+    let idx = pos;
+    const r = Math.random();
+    if (building && dropStep - s <= 4) idx = lastSlice; // stotteren vlak voor de drop
+    else if (r < c * 0.35) idx = lastSlice; // herhaal
+    else if (r < c * 0.6) idx = (pos - 4 + LOOP_STEPS) % LOOP_STEPS; // tel terug
+    else if (r < c * 0.75) idx = (Math.floor(pos / 16) * 16 + Math.floor(Math.random() * 16)) % LOOP_STEPS; // husselen binnen de maat
+    if (c > 0.6 && (s % 16) >= 14 && Math.random() < c) {
+      slice(t, idx, 0.5); slice(t + spb() / 2, idx, 0.5); // 32e-roll
+    } else slice(t, idx);
+    lastSlice = idx;
+    return true;
+  }
+
+  /* ---------- patronen (uit de analyse: 4/4, rollende bas na de kick, riff op één toon) ---------- */
+  const BASS = [0, 0, 1, 1, 0, 0, 1, 1, 0, 0, 1, 1, 0, 1, 1, 1];
+  const RIFF_NOTE = [0, 0, 12, 0, 0, 0, 1, 0, 0, 12, 0, 3, 0, 0, 12, 1];
+  const RIFF_GATE = [1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 1, 0, 1, 0];
+  const RIFF_ACC = [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1, 0];
+  const HAT_VEL = [0.05, 0.03, 0, 0.04, 0.06, 0.03, 0, 0.05, 0.05, 0.03, 0, 0.04, 0.06, 0.03, 0, 0.07];
 
   function schedule(s, t) {
-    const bar = Math.floor(s / 16) % 4;
-    const i = s % 16;
-    const root = prog[bar];
+    const i = s % 16, bar = Math.floor(s / 16) % 4, R = keyRoot();
+    const building = buildStart >= 0 && s >= buildStart && s < dropStep;
+    const isDrop = s === dropStep;
+    const bp = building ? (s - buildStart) / (dropStep - buildStart) : 0;
+    const swing = i % 2 ? spb() * 0.07 : 0;
+    const lfo = 0.5 + 0.5 * Math.sin((s / (16 * 8)) * Math.PI * 2 - Math.PI / 2); // ademt over 8 maten
+    const hit = [0, 0, 0, 0, 0];
 
-    // kick: four on the floor; extra stomps when it's all boem
-    if (i % 4 === 0) kick(t);
-    if (groove < 0.2 && (i === 10 || i === 14)) kick(t);
+    if (isDrop) {
+      kick(t, 1);
+      noise(t, { freq: 3000, len: 2.2, gain: 0.22, send: 0.9 }); // crash
+      buildStart = dropStep = -1;
+      dropBtn.disabled = false; dropBtn.textContent = 'Drop'; dropBtn.classList.remove('armed');
+      hit[0] = 1;
+    } else if (i % 4 === 0 && !(building && bp >= 0.5)) {
+      kick(t); hit[0] = 1;
+    }
+    if (!building && groove < 0.2 && (i === 10 || i === 14 || i === 7)) { kick(t); hit[0] = 1; }
 
-    if (groove > 0.15 && i % 4 === 2) noise(t, { gain: 0.16 * groove + 0.04, len: 0.05 });
-    if (groove > 0.55 && i % 2 === 1) noise(t, { gain: 0.05 * groove, len: 0.025, freq: 9000 });
-    if (groove > 0.7 && i === 14) noise(t, { gain: 0.08, len: 0.22, freq: 6000 });
-    if (groove > 0.35 && (i === 4 || i === 12)) {
-      noise(t, { type: 'bandpass', freq: 1500, q: 0.9, len: 0.16, gain: 0.32 * groove });
-      noise(t + 0.012, { type: 'bandpass', freq: 1200, q: 0.9, len: 0.12, gain: 0.18 * groove });
+    // snareroll tijdens de opbouw
+    if (building) {
+      const every = bp < 0.5 ? 4 : bp < 0.75 ? 2 : 1;
+      if (i % every === 0) noise(t, { type: 'bandpass', freq: 1400 + bp * 2600, q: 1, len: 0.1, gain: 0.08 + bp * 0.22, send: 0.4 });
     }
 
-    if (groove > 0.2 && bassPat[i]) bass(t, hz(root, 55), spb() * 1.6);
-
-    if (groove > 0.5 && melPat[i] !== null) {
-      const lvl = 0.07 * Math.min(1, (groove - 0.5) * 2.5);
-      pluck(t, hz(root + melPat[i], 440), lvl);
+    if (groove > 0.3 && !building && (i === 4 || i === 12)) {
+      noise(t, { type: 'bandpass', freq: 1500, q: 0.9, len: 0.17, gain: 0.3 * groove, send: 0.35 });
+      noise(t + 0.011, { type: 'bandpass', freq: 1150, q: 0.9, len: 0.12, gain: 0.18 * groove });
+      noise(t + 0.022, { type: 'bandpass', freq: 1300, q: 0.9, len: 0.2, gain: 0.14 * groove, send: 0.3 });
     }
-    if (groove > 0.7 && i === 0) pad(t, root, spb() * 16, 0.05 * (groove - 0.7) / 0.3);
 
-    // visuals in sync
+    if (groove > 0.15 && i % 4 === 2) { hat(t + swing, true, 0.07 + groove * 0.09); hit[1] = 1; }
+    if (groove > 0.45 && HAT_VEL[i]) { hat(t + swing, false, HAT_VEL[i] * (0.6 + groove)); hit[1] = 1; }
+    if (groove > 0.6 && (i === 3 || i === 7 || i === 11 || (bar % 2 && i === 13))) perc(t + swing, hz(R + 12, 220), 0.06 * groove);
+
+    if (groove > 0.2 && BASS[i] && !(building && bp >= 0.5)) {
+      const n = bar === 3 && i >= 13 ? R + 1 : R; // frygische b2 aan het eind van de frase
+      bass(t + swing * 0.5, hz(n, 55), spb() * 0.9, 0.26 * smooth(0.2, 0.5, groove));
+      hit[2] = 1;
+    }
+
+    if (groove > 0.45 && RIFF_GATE[i]) {
+      riff(t + swing, hz(R + RIFF_NOTE[i], 220), RIFF_ACC[i], 0.075 * smooth(0.45, 0.75, groove), building ? Math.max(lfo, bp) : lfo);
+      hit[3] = 1;
+    }
+
+    if (groove > 0.65 && !building && bar % 2 === 1 && (i === 6 || i === 14)) stab(t, R, 0.035 * smooth(0.65, 0.9, groove));
+    if (groove > 0.8 && !building && i === 0 && bar % 2 === 0) {
+      const chord = bar === 0 ? [R, R + 3, R + 7] : [R + 1, R + 5, R + 8];
+      pad(t, chord, spb() * 32, 0.022 * smooth(0.8, 1, groove));
+    }
+
+    if (sampleStep(t, s, building)) hit[4] = 1;
+
     const delayMs = Math.max(0, (t - ctx.currentTime) * 1000);
     setTimeout(() => {
-      stepCells.forEach((c, k) => c.classList.toggle('now', k === i));
-      stepOut.textContent = `${bar + 1}.${Math.floor(i / 4) + 1}.${(i % 4) + 1}`;
+      shownPos = s % LOOP_STEPS; shownTime = t;
+      cells.forEach((row, k) => row.forEach((c, j) => {
+        if (j === i) c.classList.toggle('on', !!hit[k]);
+        c.classList.toggle('now', j === i);
+      }));
+      stepOut.textContent = `${bar + 1}.${Math.floor(i / 4) + 1}`;
     }, delayMs);
   }
 
@@ -294,54 +529,125 @@
     }
   }
 
+  /* ---------- bediening ---------- */
+  function applyTempo() {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    delayL.delayTime.setTargetAtTime(spb() * 3, t, 0.05);
+    delayR.delayTime.setTargetAtTime(spb() * 3, t, 0.05);
+    if (loopSrc) loopSrc.playbackRate.setTargetAtTime(bpm / LOOP_BPM, t, 0.02);
+  }
+  function applyFilter() {
+    if (!ctx) return;
+    const t = ctx.currentTime, v = filterV;
+    const lpF = v < 0 ? 20000 * Math.pow(180 / 20000, -v) : 20000;
+    const hpF = v > 0 ? 20 * Math.pow(2800 / 20, v) : 20;
+    djLow.frequency.setTargetAtTime(lpF, t, 0.03);
+    djHigh.frequency.setTargetAtTime(hpF, t, 0.03);
+    const q = 0.7 + Math.abs(v) * 7;
+    djLow.Q.setTargetAtTime(v < 0 ? q : 0.7, t, 0.03);
+    djHigh.Q.setTargetAtTime(v > 0 ? q : 0.7, t, 0.03);
+  }
+  function applyEcho() {
+    if (!ctx) return;
+    const t = ctx.currentTime;
+    delaySend.gain.setTargetAtTime(echo, t, 0.05);
+    delayFb.gain.setTargetAtTime(0.25 + echo * 0.4, t, 0.05);
+    reverbOut.gain.setTargetAtTime(0.25 + echo * 0.9, t, 0.05);
+  }
+  function applyMix() {
+    if (!ctx) return;
+    const lvl = mix * 1.1 * (0.25 + 0.75 * smooth(0.1, 0.55, groove));
+    sampleLevel.gain.setTargetAtTime(lvl, ctx.currentTime, 0.05);
+  }
+
   function setGroove(v) {
     groove = v / 100;
     grooveFill.style.width = v + '%';
     modeOut.textContent = groove < 0.2 ? 'BOEM!!!' : groove < 0.5 ? 'OPBOUW' : groove < 0.9 ? 'GROOVE' : 'DIEP';
     $$('.presets button').forEach((b) => b.classList.toggle('active', +b.dataset.preset === +v));
+    applyMix();
   }
 
   async function start() {
     initAudio();
     await ctx.resume();
     pauseReels();
+    loadSource(src);
+    [1, 2, 3].forEach((id) => id !== src && setTimeout(() => loadSource(id), 1500));
     playing = true;
     step = 0;
-    nextTime = ctx.currentTime + 0.06;
+    nextTime = ctx.currentTime + 0.08;
+    duck.gain.cancelScheduledValues(0); duck.gain.value = 1;
     timer = setInterval(scheduler, 25);
     scheduler();
     [playBtn, topPlay].forEach((b) => b.setAttribute('aria-pressed', 'true'));
     playBtn.querySelector('.bigplay__lbl').textContent = 'Stop';
     topPlay.querySelector('.lbl').textContent = 'Stop';
+    dropBtn.disabled = false;
   }
   function stop() {
     playing = false;
     clearInterval(timer);
+    if (ctx) {
+      stopLoop();
+      buildHP.frequency.cancelScheduledValues(0); buildHP.frequency.value = 20;
+    }
+    buildStart = dropStep = -1;
     [playBtn, topPlay].forEach((b) => b.setAttribute('aria-pressed', 'false'));
     playBtn.querySelector('.bigplay__lbl').textContent = 'Play';
     topPlay.querySelector('.lbl').textContent = 'Play';
-    stepCells.forEach((c) => c.classList.remove('now'));
+    dropBtn.disabled = true; dropBtn.textContent = 'Drop'; dropBtn.classList.remove('armed');
+    cells.forEach((row) => row.forEach((c) => c.classList.remove('now', 'on')));
     stepOut.textContent = '--';
   }
   const toggle = () => (playing ? stop() : start());
   playBtn.addEventListener('click', toggle);
   topPlay.addEventListener('click', toggle);
 
-  grooveIn.addEventListener('input', () => setGroove(+grooveIn.value));
-  bpmIn.addEventListener('input', () => {
-    bpm = +bpmIn.value; bpmOut.textContent = bpm;
-    root.style.setProperty('--bpm', bpm);
+  dropBtn.addEventListener('click', () => {
+    if (!playing || buildStart >= 0) return;
+    buildStart = Math.ceil((step + 1) / 16) * 16; // vanaf de volgende maat
+    dropStep = buildStart + 32; // twee maten opbouw
+    const t = nextTime + (buildStart - step) * spb();
+    riser(t, 32 * spb());
+    dropBtn.disabled = true; dropBtn.textContent = 'Opbouw…'; dropBtn.classList.add('armed');
   });
-  volIn.addEventListener('input', () => {
-    volume = volIn.value / 100;
+
+  $$('.sources button').forEach((b) => b.addEventListener('click', () => {
+    src = +b.dataset.src;
+    $$('.sources button').forEach((x) => x.setAttribute('aria-checked', String(x === b)));
+    keyOut.textContent = SOURCES[src].key;
+    if (ctx) { stopLoop(nextTime); loadSource(src); }
+    if (!playing) start();
+  }));
+
+  const bind = (input, out, fn) => { input.addEventListener('input', () => { fn(+input.value); }); fn(+input.value); };
+  bind(grooveIn, null, setGroove);
+  bind(bpmIn, null, (v) => {
+    bpm = v; bpmOut.textContent = v; $('#bpmKnobOut').textContent = v;
+    root.style.setProperty('--bpm', v); applyTempo();
+  });
+  bind(volIn, null, (v) => {
+    volume = v / 100; $('#volOut').textContent = v + '%';
     if (master) master.gain.setTargetAtTime(volume, ctx.currentTime, 0.03);
   });
+  bind(filterIn, null, (v) => {
+    if (Math.abs(v) < 4) v = 0;
+    filterV = v / 100;
+    $('#filterOut').textContent = v === 0 ? 'open' : v < 0 ? 'LP ' + -v + '%' : 'HP ' + v + '%';
+    applyFilter();
+  });
+  filterIn.addEventListener('dblclick', () => { filterIn.value = 0; filterIn.dispatchEvent(new Event('input')); });
+  bind(chopIn, null, (v) => { chop = v / 100; $('#chopOut').textContent = v + '%'; });
+  bind(mixIn, null, (v) => { mix = v / 100; $('#mixOut').textContent = v + '%'; applyMix(); });
+  bind(echoIn, null, (v) => { echo = v / 100; $('#echoOut').textContent = v + '%'; applyEcho(); });
+
   $$('.presets button').forEach((b) => b.addEventListener('click', () => {
     grooveIn.value = b.dataset.preset;
     setGroove(+b.dataset.preset);
     if (!playing) start();
   }));
-  setGroove(+grooveIn.value);
 
   /* ---------------- Live reels ---------------- */
   const reels = $$('.reel');
@@ -444,25 +750,43 @@
     sctx.strokeStyle = 'rgba(255,255,255,0.04)';
     sctx.lineWidth = 1;
     for (let x = 0; x < SW; x += 40 * dpr) { sctx.beginPath(); sctx.moveTo(x, 0); sctx.lineTo(x, SH); sctx.stroke(); }
+    // haar set: golfvorm van de loop met afspeelkop
+    const pk = peaks[src];
+    if (pk) {
+      const midY = SH * 0.42, amp = SH * 0.22;
+      const head = playing ? ((shownPos + Math.max(0, ctx.currentTime - shownTime) / spb()) % LOOP_STEPS) / LOOP_STEPS : -1;
+      const bw2 = SW / pk.length;
+      for (let k = 0; k < pk.length; k++) {
+        const x = k * bw2, past = head >= 0 && k / pk.length <= head;
+        sctx.fillStyle = past ? 'rgba(255,42,61,0.22)' : 'rgba(255,255,255,0.07)';
+        const h = pk[k] * amp;
+        sctx.fillRect(x, midY - h, Math.max(1, bw2 - 1), h * 2);
+      }
+      if (head >= 0) {
+        sctx.fillStyle = 'rgba(243,238,111,0.9)';
+        sctx.fillRect(head * SW - dpr, 0, 2 * dpr, SH);
+      }
+      for (let b = 1; b < 4; b++) { sctx.fillStyle = 'rgba(255,255,255,0.08)'; sctx.fillRect((b / 4) * SW, 0, dpr, SH); }
+    }
     // spectrum
     const sb = 64;
     for (let i = 0; i < sb; i++) {
       const v = live ? freqData[Math.floor(Math.pow(i / sb, 1.6) * freqData.length * 0.6) + 1] / 255 : 0.03;
-      const h = v * SH * 0.55;
-      sctx.fillStyle = `hsla(${355 + (i / sb) * 65}, 100%, 60%, 0.5)`;
-      sctx.fillRect((i / sb) * SW, SH - h - 40 * dpr, SW / sb - 2 * dpr, h);
+      const h = v * SH * 0.3;
+      sctx.fillStyle = `hsla(${355 + (i / sb) * 65}, 100%, 60%, 0.22)`;
+      sctx.fillRect((i / sb) * SW, SH - h - 110 * dpr, SW / sb - 2 * dpr, h);
     }
     // waveform
     sctx.beginPath();
-    sctx.lineWidth = 2.5 * dpr;
+    sctx.lineWidth = 2 * dpr;
     sctx.strokeStyle = groove < 0.3 ? '#ff2a3d' : '#f3ee6f';
     sctx.shadowColor = sctx.strokeStyle;
-    sctx.shadowBlur = 14 * dpr;
+    sctx.shadowBlur = 10 * dpr;
     for (let x = 0; x < SW; x++) {
       let v;
       if (live) v = (timeData[Math.floor((x / SW) * timeData.length)] - 128) / 128;
       else v = Math.sin(x * 0.02 + time * 2) * 0.04;
-      const y = SH * 0.45 + v * SH * 0.38;
+      const y = SH * 0.42 + v * SH * 0.2;
       x ? sctx.lineTo(x, y) : sctx.moveTo(x, y);
     }
     sctx.stroke();

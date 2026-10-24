@@ -213,26 +213,49 @@
         <div class="section-head reveal">
           <span class="kicker">04 — Groove Machine</span>
           <h2>Schuif van <span class="boemtxt">boem</span> naar <em>groove</em>.</h2>
-          <p class="section-sub">Druk op play en hoor zelf het verschil. Helemaal links: eindeloos gebeuk.
-            Helemaal rechts: diepe basslines, hypnotiserende ritmes en subtiele melodieën. Live gegenereerd in je browser.</p>
+          <p class="section-sub">Gebouwd op haar eigen set. We hebben de audio uit de filmpjes geanalyseerd en er
+            loops uit gesneden: haar echte geluid, strak op de grid, aangevuld met een live synth in dezelfde toonsoort en hetzelfde tempo.
+            Schuif van eindeloos gebeuk naar diepe groove, hak haar set in stukjes en druk op <strong>Drop</strong>.</p>
+        </div>
+
+        <div class="analysis reveal" aria-label="Analyse van haar set">
+          <div class="analysis__item"><span class="k">Tempo</span><span class="v">128</span><span class="u">BPM</span></div>
+          <div class="analysis__item"><span class="k">Toon</span><span class="v">A</span><span class="u">mineur · frygisch</span></div>
+          <div class="analysis__item"><span class="k">Riff</span><span class="v">1</span><span class="u">toon, hypnotisch herhaald</span></div>
+          <div class="analysis__item"><span class="k">Energie</span><span class="v">2–6</span><span class="u">kHz · helder middengebied</span></div>
         </div>
 
         <div class="deck reveal">
           <div class="deck__screen">
             <canvas id="scope" aria-hidden="true"></canvas>
             <div class="deck__readout">
-              <div><span class="k">BPM</span><span class="v" id="bpmOut">126</span></div>
+              <div><span class="k">BPM</span><span class="v" id="bpmOut">128</span></div>
+              <div><span class="k">KEY</span><span class="v" id="keyOut">Am</span></div>
               <div><span class="k">MODUS</span><span class="v" id="modeOut">GROOVE</span></div>
-              <div><span class="k">STAP</span><span class="v" id="stepOut">--</span></div>
+              <div><span class="k">BAR</span><span class="v" id="stepOut">--</span></div>
             </div>
-            <div class="deck__steps" id="steps" aria-hidden="true"></div>
+            <div class="deck__status" id="deckStatus" role="status"></div>
+            <div class="deck__tracks" id="tracks" aria-hidden="true"></div>
           </div>
 
           <div class="deck__controls">
-            <button class="bigplay" id="play" aria-pressed="false">
-              <span class="bigplay__icon"></span>
-              <span class="bigplay__lbl">Play</span>
-            </button>
+            <div class="deck__transport">
+              <button class="bigplay" id="play" aria-pressed="false">
+                <span class="bigplay__icon"></span>
+                <span class="bigplay__lbl">Play</span>
+              </button>
+              <button class="dropbtn" id="drop" disabled>Drop</button>
+            </div>
+
+            <div class="sources" role="radiogroup" aria-label="Bron">
+              <span class="ctl-label">Haar set</span>
+              <div class="sources__btns">
+                <button role="radio" data-src="1" aria-checked="true">Reel 1</button>
+                <button role="radio" data-src="2" aria-checked="false">Reel 2</button>
+                <button role="radio" data-src="3" aria-checked="false">Reel 3</button>
+                <button role="radio" data-src="0" aria-checked="false">Alleen synth</button>
+              </div>
+            </div>
 
             <div class="fader">
               <div class="fader__labels"><span>Boem boem boem</span><span>Meer groove</span></div>
@@ -241,14 +264,18 @@
             </div>
 
             <div class="knobs">
-              <label class="knob">
-                <span>Tempo</span>
-                <input type="range" id="bpm" min="118" max="134" value="126" aria-label="Tempo in BPM">
-              </label>
-              <label class="knob">
-                <span>Volume</span>
-                <input type="range" id="vol" min="0" max="100" value="70" aria-label="Volume">
-              </label>
+              <label class="knob"><span>Filter <b id="filterOut">open</b></span>
+                <input type="range" id="filter" min="-100" max="100" value="0" aria-label="DJ-filter"></label>
+              <label class="knob"><span>Chop <b id="chopOut">0%</b></span>
+                <input type="range" id="chop" min="0" max="100" value="0" aria-label="Hak haar set in stukjes"></label>
+              <label class="knob"><span>Sabine <b id="mixOut">70%</b></span>
+                <input type="range" id="mix" min="0" max="100" value="70" aria-label="Volume van haar set"></label>
+              <label class="knob"><span>Echo <b id="echoOut">35%</b></span>
+                <input type="range" id="echo" min="0" max="100" value="35" aria-label="Echo en galm"></label>
+              <label class="knob"><span>Tempo <b id="bpmKnobOut">128</b></span>
+                <input type="range" id="bpm" min="118" max="138" value="128" aria-label="Tempo in BPM"></label>
+              <label class="knob"><span>Volume <b id="volOut">70%</b></span>
+                <input type="range" id="vol" min="0" max="100" value="70" aria-label="Volume"></label>
             </div>
 
             <div class="presets" role="group" aria-label="Presets">
